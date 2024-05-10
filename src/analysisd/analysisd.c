@@ -1744,6 +1744,8 @@ void * w_decode_event_thread(__attribute__((unused)) void * args){
                 continue;
             }
 
+            mdebug1("The message is: %s", msg);
+
             if (msg[0] == CISCAT_MQ) {
                 w_inc_modules_ciscat_decoded_events(lf->agent_id);
                 if (!DecodeCiscat(lf, &sock)) {
@@ -1751,14 +1753,18 @@ void * w_decode_event_thread(__attribute__((unused)) void * args){
                     free(msg);
                     continue;
                 }
+                mdebug1("CISCAT msg decoded");
             } else {
                 if (msg[0] == SYSLOG_MQ) {
                     w_inc_syslog_decoded_events();
+                    mdebug1("SYSLOG msg decoded");
                 } else if (msg[0] == LOCALFILE_MQ) {
                     w_inc_decoded_by_component_events(extract_module_from_location(lf->location), lf->agent_id);
+                    mdebug1("LOCALFILE msg decoded");
                 }
                 node = OS_GetFirstOSDecoder(lf->program_name);
                 DecodeEvent(lf, Config.g_rules_hash, &decoder_match, node);
+                mdebug1("Some other format");
             }
 
             free(msg);
@@ -1944,6 +1950,7 @@ void * w_process_event_thread(__attribute__((unused)) void * id){
             continue;
         }
 
+        mdebug1("Message %s with log %s is being processed", lf->id, lf->log);
         lf->tid = t_id;
         t_currently_rule = NULL;
 
@@ -2014,8 +2021,11 @@ void * w_process_event_thread(__attribute__((unused)) void * id){
         // Insert labels
         lf->labels = labels_find(lf->agent_id, &sock);
 
+        /* ===rule matching=== */
         /* Check the rules */
         DEBUG_MSG("%s: DEBUG: Checking the rules - %d ",
+                    ARGV0, lf->decoder_info->type);
+        mdebug1("%s: DEBUG: Checking the rules - %d ",
                     ARGV0, lf->decoder_info->type);
 
         w_inc_processed_events(lf->agent_id);
@@ -2163,6 +2173,8 @@ void * w_process_event_thread(__attribute__((unused)) void * id){
             break;
 
         } while ((rulenode_pt = rulenode_pt->next) != NULL);
+
+        /* ===end of rule matching=== */
 
         if (Config.logall || Config.logall_json){
             if (!lf_logall) {
